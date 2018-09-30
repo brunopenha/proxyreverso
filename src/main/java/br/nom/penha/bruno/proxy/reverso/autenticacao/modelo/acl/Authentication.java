@@ -1,0 +1,28 @@
+package br.nom.penha.bruno.proxy.reverso.autenticacao.modelo.acl;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * @author hpark
+ */
+public class Authentication {
+
+    private List<AuthRequest> authRequestList;
+
+    public Authentication() {
+        authRequestList = new ArrayList<AuthRequest>();
+    }
+
+    public Authentication(List<AuthRequest> authRequestList) {
+        this.authRequestList = authRequestList;
+    }
+
+    public List<AuthRequest> getAuthRequestList() {
+        return authRequestList;
+    }
+
+    public void setAuthRequestList(List<AuthRequest> authRequestList) {
+        this.authRequestList = authRequestList;
+    }
+}
