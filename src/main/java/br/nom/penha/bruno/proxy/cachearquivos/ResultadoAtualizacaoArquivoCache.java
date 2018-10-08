@@ -3,11 +3,11 @@ package br.nom.penha.bruno.proxy.cachearquivos;
 import java.util.HashSet;
 import java.util.Set;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import org.vertx.java.core.AsyncResult;
+import org.vertx.java.core.logging.Logger;
+import org.vertx.java.core.logging.impl.LoggerFactory;
 
-class ResultadoAtualizacaoArquivoCache implements AsyncResult<Set<FileCacheEntry>> {
+class ResultadoAtualizacaoArquivoCache implements AsyncResult<Set<ArquivosCacheInseridos>> {
 
     /**
      * Log
@@ -17,18 +17,18 @@ class ResultadoAtualizacaoArquivoCache implements AsyncResult<Set<FileCacheEntry
 
     private boolean tarefasDesignadasCompletadas = false;
 
-    private Throwable cause = null;
+    private Throwable causa = null;
 
-    private boolean succeeded = false;
+    private boolean inserido = false;
 
-    private Set<FileCacheEntry> listaArquivosAtualizados = new HashSet<FileCacheEntry>();
+    private Set<ArquivosCacheInseridos> listaArquivosAtualizados = new HashSet<ArquivosCacheInseridos>();
 
-    private Set<FileCacheEntry> listaArquivosComFalhas = new HashSet<FileCacheEntry>();
+    private Set<ArquivosCacheInseridos> listaArquivosComFalhas = new HashSet<ArquivosCacheInseridos>();
 
     private Set<String> arquivosPendentes = new HashSet<String>();
 
     public boolean foiFinalizado() {
-        return arquivosPendentes.isEmpty() && hasCompletedTaskAssignments();
+        return arquivosPendentes.isEmpty() && completouTarefasAssumidas();
     }
 
     /**
@@ -36,61 +36,61 @@ class ResultadoAtualizacaoArquivoCache implements AsyncResult<Set<FileCacheEntry
      */
 
 
-    public boolean hasCompletedTaskAssignments() {
+    public boolean completouTarefasAssumidas() {
         return tarefasDesignadasCompletadas;
     }
 
-    public void setHasCompletedTaskAssignments(boolean completedTaskAssignments) {
-        this.tarefasDesignadasCompletadas = completedTaskAssignments;
+    public void setCompletouTarefasAssumidas(boolean completouTarefasAssumidas) {
+        this.tarefasDesignadasCompletadas = completouTarefasAssumidas;
     }
 
-    public void addPendingFile(String file) {
-        arquivosPendentes.add(file);
+    public void adicionaArquivosPendentes(String arquivo) {
+        arquivosPendentes.add(arquivo);
     }
 
-    public void addUpdatedFile(FileCacheEntry file) {
-        listaArquivosAtualizados.add(file);
+    public void adicionaArquivoAtualizado(ArquivosCacheInseridos arquivo) {
+        listaArquivosAtualizados.add(arquivo);
     }
 
-    public void addFailedFile(FileCacheEntry file) {
-        listaArquivosComFalhas.add(file);
+    public void adicionaArquivoComFalha(ArquivosCacheInseridos arquivo) {
+        listaArquivosComFalhas.add(arquivo);
     }
 
-    public Set<FileCacheEntry> getFailedFiles() {
+    public Set<ArquivosCacheInseridos> getArquivosComFalha() {
         return listaArquivosComFalhas;
     }
 
-    public void removePendingFile(String file) {
-        arquivosPendentes.remove(file);
+    public void removeArquivosPendentes(String arquivos) {
+        arquivosPendentes.remove(arquivos);
     }
 
-    public void setSucceeded(boolean succeeded) {
-        this.succeeded = succeeded;
+    public void setInserido(boolean succeeded) {
+        this.inserido = succeeded;
     }
 
     @Override
     public boolean succeeded() {
-        return succeeded;
+        return inserido;
     }
 
     @Override
     public boolean failed() {
-        return !succeeded;
+        return !inserido;
     }
 
 
-    public void setCause(Throwable cause) {
-        this.cause = cause;
+    public void setCausa(Throwable cause) {
+        this.causa = cause;
     }
 
     @Override
     public Throwable cause() {
-        return cause;
+        return causa;
     }
 
 
     @Override
-    public Set<FileCacheEntry> result() {
+    public Set<ArquivosCacheInseridos> result() {
         return listaArquivosAtualizados;
     }
 

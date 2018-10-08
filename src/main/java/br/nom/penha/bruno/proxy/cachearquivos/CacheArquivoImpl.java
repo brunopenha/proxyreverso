@@ -4,13 +4,16 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Vertx;
-import io.vertx.core.file.FileProps;
-import io.vertx.core.file.FileSystem;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.shareddata.LocalMap;
+import org.vertx.java.core.AsyncResult;
+import org.vertx.java.core.AsyncResultHandler;
+import org.vertx.java.core.Vertx;
+import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.file.FileProps;
+import org.vertx.java.core.file.FileSystem;
+import org.vertx.java.core.logging.Logger;
+import org.vertx.java.core.logging.impl.LoggerFactory;
+
+import br.nom.penha.bruno.proxy.reverso.comum.AsyncResultImpl;
 
 /**
  * Cache do Arquivo
@@ -26,216 +29,215 @@ public class CacheArquivoImpl {
 	 */
 	private static final Logger LOG = LoggerFactory.getLogger(CacheArquivoImpl.class);
 
-	private final ConcurrentMap<String, FileCacheEntry> mapaCache;
+	private final ConcurrentMap<String, ArquivosCacheInseridos> mapaCache;
 
-	private final LocalMap<String, byte[]> mapaCacheLocal;
+	private final ConcurrentMap<String, byte[]> mapaCacheLocal;
 
 	private FileSystem fs;
 
 	public CacheArquivoImpl(Vertx vertx) {
 		super();
 		this.fs = vertx.fileSystem();
-		this.mapaCacheLocal = vertx.sharedData().getLocalMap(CacheArquivoVerticle.MAPA_CACHE_ARQUIVO);
+		this.mapaCacheLocal = vertx.sharedData().getMap(CacheArquivoVerticle.MAPA_CACHE_ARQUIVO);
 		this.mapaCache = new ConcurrentHashMap<>();
 	}
 
-	protected java.util.Map<String, FileCacheEntry> getInternalMap() {
+	protected java.util.Map<String, ArquivosCacheInseridos> getMapInterno() {
 		return mapaCache;
 	}
 
-	public void putFileSynch(final String path, final String updateNotificationChannel) {
-		LOG.debug("Requisição de atualização de arquivo feita para [" + path + "]");
+	public void colocaArquivoEmSincronia(final String caminho, final String atualizaNotificacoesCanal) {
+		LOG.debug("Requisição de atualização de arquivo feita para [" + caminho + "]");
 
-		final FileProps fileProps = fs.propsBlocking(path);
-		final byte[] bytes = fs.readFileBlocking(path).getBytes();
+		final FileProps propriedadesArquivo = fs.propsSync(caminho);
+		final byte[] bytes = fs.readFileSync(caminho).getBytes();
 
-		FileCacheEntry entry = new FileCacheEntry() {
+		ArquivosCacheInseridos inseridos = new ArquivosCacheInseridos() {
 
 			@Override
-			public String getEventBusNotificationChannel() {
-				return updateNotificationChannel;
+			public String getCanalNotificacoesEventosNoBarramento() {
+				return atualizaNotificacoesCanal;
 			}
 
 			@Override
-			public long lastModified() {
-				return fileProps.lastModifiedTime();
+			public long ultimaModificacao() {
+				return propriedadesArquivo.lastModifiedTime().getTime();
 			}
 
 			@Override
-			public FileProps fileProps() {
-				return fileProps;
+			public FileProps propriedadesArquivo() {
+				return propriedadesArquivo;
 			}
 
 			@Override
-			public byte[] fileContents() {
+			public byte[] conteudoArquivo() {
 				return bytes;
 			}
 		};
 
-		boolean isNew = !mapaCache.containsKey("path");
+		boolean ehNovo = !mapaCache.containsKey("path");
 
-		String confirmMsg = isNew ? "Adding" : "Updating";
-		confirmMsg += " file [" + path + "], modified [" + entry.lastModified() + "] to cache.";
-		LOG.debug(confirmMsg);
+		String msgConfirmacao = ehNovo ? "Adicionando" : "Atualizando";
+		msgConfirmacao += " arquivo [" + caminho + "], modificado [" + inseridos.ultimaModificacao() + "] no cache.";
+		LOG.debug(msgConfirmacao);
 
-		mapaCache.put(path, entry);
+		mapaCache.put(caminho, inseridos);
 
-		mapaCacheLocal.put(path, entry.fileContents());
+		mapaCacheLocal.put(caminho, inseridos.conteudoArquivo());
 	}
 
-	public void putFile(final String path, final String updateNotificationChannel, final AsyncResult<FileCacheEntry> asyncResultHandler) {
+	public void insereArquivo(final String caminho, final String atulizacaCanalNotificacao, final AsyncResultHandler<ArquivosCacheInseridos> trataArquivosAsyncHandler) {
 
-		LOG.debug("Requisição de atualização de arquivo feita para [" + path + "]");
+		LOG.debug("Requisição de atualização de arquivo feita para [" + caminho + "]");
 
-		fs.props(path, result -> {
+		fs.props(caminho, new AsyncResultHandler<FileProps>() {
+			@Override
+			public void handle(final AsyncResult<FileProps> resultado) {
+				if (resultado.succeeded()) {
 
-				if (result.succeeded()) {
+					final FileProps fileProps = resultado.result();
 
-					final FileProps fileProps = result.result();
-
-					fs.readFile(path,  arq -> {
+					fs.readFile(caminho, new AsyncResultHandler<Buffer>() {
+						public void handle(AsyncResult<Buffer> arq) {
 
 
 						if (arq.succeeded()) {
 							final byte[] bytes = arq.result().getBytes();
 
-							FileCacheEntry entry = new FileCacheEntry() {
+							ArquivosCacheInseridos arquivoInserido = new ArquivosCacheInseridos() {
 
 								@Override
-								public String getEventBusNotificationChannel() {
-									return updateNotificationChannel;
+								public String getCanalNotificacoesEventosNoBarramento() {
+									return atulizacaCanalNotificacao;
 								}
 
 								@Override
-								public long lastModified() {
-									return fileProps.lastModifiedTime();
+								public long ultimaModificacao() {
+									return fileProps.lastModifiedTime().getTime();
 								}
 
 								@Override
-								public FileProps fileProps() {
+								public FileProps propriedadesArquivo() {
 									return fileProps;
 								}
 
 								@Override
-								public byte[] fileContents() {
+								public byte[] conteudoArquivo() {
 									return bytes;
 								}
 							};
 
-							boolean isNew = !mapaCache.containsKey("path");
+							boolean ehNovo = !mapaCache.containsKey("path");
 
-							String confirmMsg = isNew ? "Adding" : "Updating";
-							confirmMsg += " file [" + path + "], modified [" + entry.lastModified() + "] to cache.";
+							String confirmMsg = ehNovo ? "Adicionando" : "Atualizando";
+							confirmMsg += " arquivo [" + caminho + "], foi modificado em [" + arquivoInserido.ultimaModificacao() + "] no cache.";
 							LOG.debug(confirmMsg);
 
-							mapaCache.put(path, entry);
+							mapaCache.put(caminho, arquivoInserido);
 
-							mapaCacheLocal.put(path, entry.fileContents());
+							mapaCacheLocal.put(caminho, arquivoInserido.conteudoArquivo());
 
-							asyncResultHandler.result();//handle(new AsyncResultImpl(true, entry, null));
-							result.succeeded();
+							trataArquivosAsyncHandler.handle(new AsyncResultImpl(true, arquivoInserido, null));
+							resultado.succeeded();
 							return;
 
 						}
 						else {
-							LOG.error("Failure loading file for cache [" + path + "]", result.cause());
-							asyncResultHandler.failed();
-							result.failed();
+							LOG.error("Falha ao carregar o arquivo para o cache [" + caminho + "]", resultado.cause());
+							trataArquivosAsyncHandler.handle(new AsyncResultImpl(false));
+							resultado.failed();
 						}
 					
-					
+						}
 					});
 				}
 				else {
-					LOG.error("Failure locating file for cache [" + path + "]", result.cause());
-					asyncResultHandler.result();
-					result.cause();
+					LOG.error("Falha em localizar o arquivo cache em [" + caminho + "]", resultado.cause());
+					trataArquivosAsyncHandler.handle(new AsyncResultImpl(false));
+					resultado.cause();
 				}
 
+			}
+
+				
 
 		
 		});
 	}
 
-	public void updateCache(final AsyncResult<Set<FileCacheEntry>> updateHandler) {
+	public void updateCache(final AsyncResultHandler<Set<ArquivosCacheInseridos>> trataAtualizacao) {
 
-		final ResultadoAtualizacaoArquivoCache fileCacheUpdateResult = new ResultadoAtualizacaoArquivoCache();
+		final ResultadoAtualizacaoArquivoCache resultadoAtualizacaoArquivo = new ResultadoAtualizacaoArquivoCache();
 
 		if (mapaCache.keySet().isEmpty()) {
-			fileCacheUpdateResult.setHasCompletedTaskAssignments(true);
-			fileCacheUpdateResult.setSucceeded(true);
-			updateHandler.result();//handle(fileCacheUpdateResult);
+			resultadoAtualizacaoArquivo.setCompletouTarefasAssumidas(true);
+			resultadoAtualizacaoArquivo.setInserido(true);
+			trataAtualizacao.handle(resultadoAtualizacaoArquivo);
 			return;
 		}
-
+		
 		for (final String chave : mapaCache.keySet()) {
 
-			final FileCacheEntry dado = mapaCache.get(chave);
+			final ArquivosCacheInseridos inserido = mapaCache.get(chave);
 
-			fileCacheUpdateResult.addPendingFile(chave);
+			resultadoAtualizacaoArquivo.adicionaArquivosPendentes(chave);
 
-			LOG.debug("Verificando [" + chave + "] se tem atualizações...");
+			LOG.debug("Verificando [" + chave + "] para atualizações...");
 
-			FileCacheEntry currentEntry = mapaCache.get(chave);
-			final String updateNotificationChannel = (currentEntry != null && currentEntry.getEventBusNotificationChannel() != null)
-					? currentEntry.getEventBusNotificationChannel()
+			ArquivosCacheInseridos arquivoAtual = mapaCache.get(chave);
+			final String updateNotificationChannel = (arquivoAtual != null && arquivoAtual.getCanalNotificacoesEventosNoBarramento() != null)
+					? arquivoAtual.getCanalNotificacoesEventosNoBarramento()
 					: null;
 
-			fs.props(chave, resultado -> {
+			fs.props(chave, new AsyncResultHandler<FileProps>() {
+				@Override
+				public void handle(final AsyncResult<FileProps> resultado) {
 					if (resultado.succeeded()) {
-						final long ultimaModificacao = (resultado.result().lastModifiedTime());
+						final long ultimaModificacao = (resultado.result().lastModifiedTime().getTime());
 
-						if (dado.lastModified() < ultimaModificacao) {
-							LOG.info("Dado em cache [" + chave + "] foi modificado.  Atualizando cache... ");
+						if (inserido.ultimaModificacao() < ultimaModificacao) {
+							LOG.info("Cache incluido [" + chave + "] foi modificado.  Atualizando cache... ");
 
-							putFile(chave, updateNotificationChannel, new AsyncResult<FileCacheEntry>() {
-								
-
+							insereArquivo(chave, updateNotificationChannel, new AsyncResultHandler<ArquivosCacheInseridos>() {
 								@Override
-								public FileCacheEntry result() {
-									fileCacheUpdateResult.addUpdatedFile(this.result());
-									return this.result();
-								}
-
-								@Override
-								public Throwable cause() {
-									return this.cause();
-								}
-
-								@Override
-								public boolean succeeded() {
-									return this.succeeded();
-								}
-
-								@Override
-								public boolean failed() {
-									LOG.error("Failed to update cache for [" + chave + "]");
-									fileCacheUpdateResult.addFailedFile(this.result());
-									return this.failed();
+								public void handle(AsyncResult<ArquivosCacheInseridos> evento) {
+									if (evento.failed()) {
+										LOG.error("Falha ao atualizar o cache para [" + chave + "]");
+									}
+									else {
+										if (evento.succeeded()) {
+											resultadoAtualizacaoArquivo.adicionaArquivoAtualizado(evento.result());
+										}
+										else {
+											resultadoAtualizacaoArquivo.adicionaArquivoComFalha(evento.result());
+										}
+									}
+									marcaComoCompletadoEVerificaSeFoiFinalizado(resultadoAtualizacaoArquivo, trataAtualizacao, chave);
 								}
 							});
 						}
 						else {
-							marcaComoCompletadoEVerificaSeFoiFinalizado(fileCacheUpdateResult, updateHandler, chave);
+							marcaComoCompletadoEVerificaSeFoiFinalizado(resultadoAtualizacaoArquivo, trataAtualizacao, chave);
 						}
 					}
 					else {
-						LOG.error("Uma exceção não esperada acontenceu no momento de verificar a chave  [" + chave + "]", resultado.cause());
-						marcaComoCompletadoEVerificaSeFoiFinalizado(fileCacheUpdateResult, updateHandler, chave);
+						LOG.error("Ocorreu uma exceção não esperada ao atualizar o arquivo  [" + chave + "]", resultado.cause());
+						marcaComoCompletadoEVerificaSeFoiFinalizado(resultadoAtualizacaoArquivo, trataAtualizacao, chave);
 					}
-				});
-			
+				}
+			});
 		}
 
-		fileCacheUpdateResult.setHasCompletedTaskAssignments(true);
+
+		resultadoAtualizacaoArquivo.setCompletouTarefasAssumidas(true);
 
 	}
 
-	public void marcaComoCompletadoEVerificaSeFoiFinalizado(ResultadoAtualizacaoArquivoCache result, AsyncResult<Set<FileCacheEntry>> updateHandler, String absolutePath) {
-		result.removePendingFile(absolutePath);
+	public void marcaComoCompletadoEVerificaSeFoiFinalizado(ResultadoAtualizacaoArquivoCache result, AsyncResultHandler<Set<ArquivosCacheInseridos>> updateHandler, String absolutePath) {
+		result.removeArquivosPendentes(absolutePath);
 		if (result.foiFinalizado()) {
-			result.setSucceeded(true);
-			updateHandler.result();
+			result.setInserido(true);
+			updateHandler.handle(result);
 		}
 	}
 

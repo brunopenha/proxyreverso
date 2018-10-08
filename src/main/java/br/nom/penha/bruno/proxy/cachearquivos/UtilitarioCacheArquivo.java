@@ -1,8 +1,8 @@
 package br.nom.penha.bruno.proxy.cachearquivos;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.logging.Logger;
+import org.vertx.java.core.AsyncResult;
+import org.vertx.java.core.eventbus.EventBus;
+import org.vertx.java.core.logging.Logger;
 
 /**
  */

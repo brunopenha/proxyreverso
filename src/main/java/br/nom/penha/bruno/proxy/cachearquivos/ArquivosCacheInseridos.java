@@ -1,12 +1,12 @@
 package br.nom.penha.bruno.proxy.cachearquivos;
 
-import io.vertx.core.file.FileProps;
+import org.vertx.java.core.file.FileProps;
 
 /**
  * Entradas para arquivos de Cache
  *
  */
-public interface FileCacheEntry {
+public interface ArquivosCacheInseridos {
 
     /**
      * Canal
@@ -14,12 +14,12 @@ public interface FileCacheEntry {
      * Se não for nulo, transmite atualizações nesse canal
      * If non-null, broadcast updates on this channel.
      */
-    String getEventBusNotificationChannel();
+    String getCanalNotificacoesEventosNoBarramento();
 
-    FileProps fileProps();
+    FileProps propriedadesArquivo();
 
-    long lastModified();
+    long ultimaModificacao();
 
-    byte[] fileContents();
+    byte[] conteudoArquivo();
 
 }

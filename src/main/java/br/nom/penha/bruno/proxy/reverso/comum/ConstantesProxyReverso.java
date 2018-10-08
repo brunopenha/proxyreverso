@@ -1,6 +1,6 @@
 package br.nom.penha.bruno.proxy.reverso.comum;
 
-public class ReverseProxyConstants {
+public class ConstantesProxyReverso {
 
 	public static String SID = "sid";
 
@@ -14,7 +14,7 @@ public class ReverseProxyConstants {
 
 	public static String COOKIE_ORIGINAL_HEADER = "original-request";
 
-	private ReverseProxyConstants() {
+	private ConstantesProxyReverso() {
 
 	}
 }

@@ -1,14 +1,19 @@
 package br.nom.penha.bruno.proxy;
 
+import java.util.concurrent.ConcurrentMap;
+
+import org.vertx.java.core.http.HttpServer;
+import org.vertx.java.core.http.RouteMatcher;
+
+import org.vertx.java.core.logging.Logger;
+import org.vertx.java.core.logging.impl.LoggerFactory;
+import org.vertx.java.platform.Verticle;
+
+import br.nom.penha.bruno.proxy.handlers.RequisicaoAutenticacaoHandler;
 import br.nom.penha.bruno.proxy.reverso.comum.TrataProxyReverso;
 import br.nom.penha.bruno.proxy.reverso.configuracao.ConfiguracaoProxyReverso;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.http.HttpServer;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.shareddata.LocalMap;
 
-public class ProxyReverso extends AbstractVerticle{
+public class ProxyReverso extends Verticle{
 
 
 	/**
@@ -20,13 +25,13 @@ public class ProxyReverso extends AbstractVerticle{
 
 	private ConfiguracaoProxyReverso config;
 
-	private LocalMap<String, byte[]> localMap;
+	private ConcurrentMap<String, byte[]> mapaCacheCompartihado;
 
-	private static String resourceRoot;
+	private static String raizRecursos;
 	private static String webRoot;
 
 	public static String getResourceRoot() {
-		return resourceRoot;
+		return raizRecursos;
 	}
 
 	public static String getWebRoot() {
@@ -34,11 +39,11 @@ public class ProxyReverso extends AbstractVerticle{
 	}
 
 	public void start() {
-		resourceRoot = config().getString("resourceRoot");
-		webRoot = config().getString("webRoot");
+		raizRecursos = container.config().getString("resourceRoot");
+		webRoot = container.config().getString("webRoot");
 
-		localMap = vertx.sharedData().getLocalMap("file.cache.map");
-		config = TrataProxyReverso.getConfig(ConfiguracaoProxyReverso.class, localMap.get(resourceRoot + CONFIG_PATH));
+		mapaCacheCompartihado = vertx.sharedData().getMap("file.cache.map");
+		config = TrataProxyReverso.getConfig(ConfiguracaoProxyReverso.class, mapaCacheCompartihado.get(raizRecursos + CONFIG_PATH));
 		// inicio o verticle
 		doStart();
 	}
@@ -46,17 +51,17 @@ public class ProxyReverso extends AbstractVerticle{
 	public void doStart() {
 
 
-//		RouteMatcher routeMatcher = new RouteMatcher();
+		RouteMatcher routeMatcher = new RouteMatcher();
 
-//		routeMatcher.all("/auth", new AuthRequestHandler(vertx));
+		routeMatcher.all("/auth", new RequisicaoAutenticacaoHandler(vertx));
 
 		for (String asset : config.recursos) {
 			String pattern = "/.*\\." + asset;
 			log.debug("Adding asset " + pattern);
-//			routeMatcher.all(pattern, new ReverseProxyHandler(vertx, false));
+//			routeMatcher.all(pattern, new ProxyReversoHandler(vertx, false));
 		}
 
-//		routeMatcher.all("/.*", new ReverseProxyHandler(vertx, true));
+//		routeMatcher.all("/.*", new ProxyReversoHandler(vertx, true));
 
 		final HttpServer httpsServer = vertx.createHttpServer();
 //				.requestHandler(routeMatcher)
@@ -68,7 +73,7 @@ public class ProxyReverso extends AbstractVerticle{
 	}
 
 //	public static String config() {
-//		return BootstrapVerticle.getResourceRoot() + CONFIG_PATH;
+//		return InicializacaoVerticle.getResourceRoot() + CAMINHO_CONFIG;
 //	}
 
 	public static String configAfterDeployment() {
@@ -78,10 +83,10 @@ public class ProxyReverso extends AbstractVerticle{
 	/*public static List<String> dependencies(ConfiguracaoProxyReverso config) {
 		List<String> dependencyList = new ArrayList<String>();
 
-		dependencyList.add(BootstrapVerticle.getWebRoot() + "auth/login.html");
-		dependencyList.add(BootstrapVerticle.getWebRoot() + "redirectConfirmation.html");
+		dependencyList.add(InicializacaoVerticle.getWebRoot() + "auth/login.html");
+		dependencyList.add(InicializacaoVerticle.getWebRoot() + "redirectConfirmation.html");
 
-		dependencyList.add(BootstrapVerticle.getResourceRoot() + config.ssl.symKeyPath);
+		dependencyList.add(InicializacaoVerticle.getResourceRoot() + config.ssl.symKeyPath);
 
 		return dependencyList;
 	}*/

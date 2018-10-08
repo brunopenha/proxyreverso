@@ -7,13 +7,13 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
+import org.vertx.java.core.MultiMap;
+import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.http.HttpServerRequest;
+import org.vertx.java.core.logging.Logger;
 
 import com.google.gson.Gson;
 
-import io.vertx.core.MultiMap;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.logging.Logger;
 import net.iharder.Base64;
 
 /**

@@ -4,6 +4,17 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
+import java.util.concurrent.ConcurrentMap;
+
+import org.vertx.java.core.Handler;
+import org.vertx.java.core.Vertx;
+import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.http.HttpClient;
+import org.vertx.java.core.http.HttpClientRequest;
+import org.vertx.java.core.http.HttpClientResponse;
+import org.vertx.java.core.http.HttpServerRequest;
+import org.vertx.java.core.logging.Logger;
+import org.vertx.java.core.logging.impl.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -11,34 +22,23 @@ import com.google.gson.GsonBuilder;
 import br.nom.penha.bruno.proxy.reverso.autenticacao.MultipartUtil;
 import br.nom.penha.bruno.proxy.reverso.autenticacao.modelo.acl.AuthenticationResponse;
 import br.nom.penha.bruno.proxy.reverso.autenticacao.modelo.acl.SessionToken;
-import br.nom.penha.bruno.proxy.reverso.comum.ReverseProxyConstants;
+import br.nom.penha.bruno.proxy.reverso.comum.ConstantesProxyReverso;
 import br.nom.penha.bruno.proxy.reverso.comum.TrataProxyReverso;
 import br.nom.penha.bruno.proxy.reverso.configuracao.ConfiguracaoProxyReverso;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.shareddata.LocalMap;
 import net.iharder.Base64;
 
-public class AuthResponseHandler implements Handler<HttpClientResponse> {
+public class ResponseAutenticacaoHandler implements Handler<HttpClientResponse> {
 
 	/**
 	 * Log
 	 */
-	private static final Logger log = LoggerFactory.getLogger(AuthResponseHandler.class);
+	private static final Logger log = LoggerFactory.getLogger(ResponseAutenticacaoHandler.class);
 
 	private final HttpServerRequest req;
 
 	private final Vertx vertx;
 
-	private final LocalMap<String, byte[]> sharedCacheMap;
+	private final ConcurrentMap<String, byte[]> sharedCacheMap;
 
 	private final String payload;
 
@@ -48,7 +48,7 @@ public class AuthResponseHandler implements Handler<HttpClientResponse> {
 
 	private final String refererSid;
 
-	public AuthResponseHandler(Vertx vertx, HttpServerRequest req, LocalMap<String, byte[]> sharedCacheMap2, String payload, SessionToken sessionToken,
+	public ResponseAutenticacaoHandler(Vertx vertx, HttpServerRequest req, ConcurrentMap<String, byte[]> sharedCacheMap2, String payload, SessionToken sessionToken,
 			boolean authPosted, String refererSid) {
 		this.vertx = vertx;
 		this.req = req;
@@ -63,7 +63,7 @@ public class AuthResponseHandler implements Handler<HttpClientResponse> {
 	public void handle(final HttpClientResponse res) {
 
 		final ConfiguracaoProxyReverso config = TrataProxyReverso.getConfig(ConfiguracaoProxyReverso.class,
-				sharedCacheMap.get(ReverseProxyVerticle.configAfterDeployment()));
+				sharedCacheMap.get(ProxyReversoVerticle.configAfterDeployment()));
 
 		res.bodyHandler(new Handler<Buffer>() {
 			public void handle(Buffer data) {
@@ -90,7 +90,7 @@ public class AuthResponseHandler implements Handler<HttpClientResponse> {
 
 							String uriPath;
 							if (authPosted) {
-								String originalRequest = TrataProxyReverso.getCookieValue(req.headers(), ReverseProxyConstants.COOKIE_ORIGINAL_HEADER);
+								String originalRequest = TrataProxyReverso.getCookieValue(req.headers(), ConstantesProxyReverso.COOKIE_ORIGINAL_HEADER);
 								String uri = null;
 								try {
 									uri = new String(Base64.decode(originalRequest));
@@ -106,7 +106,7 @@ public class AuthResponseHandler implements Handler<HttpClientResponse> {
 								}
 							}
 							else {
-								uriPath = req.absoluteURI();//.getPath();
+								uriPath = req.absoluteURI().getPath();
 							}
 							String[] path = uriPath.split("/");
 
@@ -115,13 +115,7 @@ public class AuthResponseHandler implements Handler<HttpClientResponse> {
 							}
 
 							if (!path[1].equals(config.servicoComum) && !path[1].equals("auth")) {
-								String sid = null;
-								try {
-									sid = TrataProxyReverso.parseTokenDeUmaQueryString(new URI(req.absoluteURI()), ReverseProxyConstants.SID);
-								} catch (URISyntaxException e) {
-									// TODO Auto-generated catch block
-									e.printStackTrace();
-								}
+								String sid = TrataProxyReverso.parseTokenDeUmaQueryString(req.absoluteURI(), ConstantesProxyReverso.SID);
 								if (TrataProxyReverso.estahNuloOuVazioAposUmTrim(sid)) {
 									if (TrataProxyReverso.estahNuloOuVazioAposUmTrim(refererSid)) {
 										log.error("SID is required for request to non-default service");
@@ -135,12 +129,12 @@ public class AuthResponseHandler implements Handler<HttpClientResponse> {
 									new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ssZ").format(response.getResponse().getSessionDate()),
 									payload);
 
-							HttpClient signClient = vertx.createHttpClient();
-//									.setHost(config.dependenciasServico.getHost("auth"))
-//									.setPorta(config.dependenciasServico.getPorta("auth"));
-							final HttpClientRequest signRequest = signClient.request(HttpMethod.POST,
+							HttpClient signClient = vertx.createHttpClient()
+									.setHost(config.dependenciasServico.getHost("auth"))
+									.setPort(config.dependenciasServico.getPorta("auth"));
+							final HttpClientRequest signRequest = signClient.request("POST",
 									config.dependenciasServico.getCaminhosRequisicao("auth", "sign"),
-									new SignResponseHandler(vertx, req, sharedCacheMap, payload, sessionToken, authPosted, unsignedDocument, refererSid));
+									new RetornaAssinaturaHandler(vertx, req, sharedCacheMap, payload, sessionToken, authPosted, unsignedDocument, refererSid));
 
 							signRequest.setChunked(true);
 							signRequest.write(unsignedDocument);

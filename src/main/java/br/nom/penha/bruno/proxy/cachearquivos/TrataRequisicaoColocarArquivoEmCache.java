@@ -1,10 +1,11 @@
 package br.nom.penha.bruno.proxy.cachearquivos;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Handler;
-import io.vertx.core.eventbus.Message;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import org.vertx.java.core.AsyncResult;
+import org.vertx.java.core.AsyncResultHandler;
+import org.vertx.java.core.Handler;
+import org.vertx.java.core.eventbus.Message;
+import org.vertx.java.core.logging.Logger;
+import org.vertx.java.core.logging.impl.LoggerFactory;
 
 public class TrataRequisicaoColocarArquivoEmCache implements Handler<Message<String>> {
 
@@ -13,52 +14,41 @@ public class TrataRequisicaoColocarArquivoEmCache implements Handler<Message<Str
      */
     private static final Logger log = LoggerFactory.getLogger(TrataRequisicaoColocarArquivoEmCache.class);
 
-    private final CacheArquivoImpl fileCache;
+    private final CacheArquivoImpl arquivoCache;
 
-    public TrataRequisicaoColocarArquivoEmCache(CacheArquivoImpl fileCache) {
-        this.fileCache = fileCache;
+    public TrataRequisicaoColocarArquivoEmCache(CacheArquivoImpl arquivoCacheParam) {
+        this.arquivoCache = arquivoCacheParam;
     }
 
     @Override
-    public void handle(final Message<String> message) {
+    public void handle(final Message<String> mensagem) {
 
-        log.debug("FileCache received cache request on [" + message.address() + "] for [ " + message.body() + "]");
+        log.debug("Requisicao de cache em  [" + mensagem.address() + "] para [ " + mensagem.body() + "]");
 
-        final String path = message.body();
+        final String caminho = mensagem.body();
 
-        if (fileCache.getInternalMap().get(path) != null) {
-            FileCacheEntry e = fileCache.getInternalMap().get(path);
-            message.reply(e.fileContents());
+        if (arquivoCache.getMapInterno().get(caminho) != null) {
+            ArquivosCacheInseridos e = arquivoCache.getMapInterno().get(caminho);
+            mensagem.reply(e.conteudoArquivo());
             return;
         }
 
-        fileCache.putFile(path, CacheArquivoVerticle.CANAL_CACHE_ARQUIVO + path
-                , new AsyncResult<FileCacheEntry>() {
+        arquivoCache.insereArquivo(caminho, CacheArquivoVerticle.CANAL_CACHE_ARQUIVO + caminho
+                , new AsyncResultHandler<ArquivosCacheInseridos>() {
+            @Override
+            public void handle(AsyncResult<ArquivosCacheInseridos> evento) {
+                if (evento.succeeded()) {
+                    mensagem.reply(evento.result().conteudoArquivo());
+                } else {
+                    log.error(evento.cause());
+                    mensagem.fail(-1, "Falha ao localizar o arquivo em [" + caminho + "]");
 
-			@Override
-			public FileCacheEntry result() {
-				message.reply(this.result().fileContents());
-				return this.result();
-			}
-
-			@Override
-			public Throwable cause() {
-				return this.cause();
-			}
-
-			@Override
-			public boolean succeeded() {
-				return this.succeeded();
-			}
-
-			@Override
-			public boolean failed() {
-				log.error(this.cause());
-                message.fail(-1, "Falha ao localizar o arquivo no caminho[" + path + "]");
-
-				return this.failed();
-			}
+                }
+            }
         });
+
+        
+        
 
     }
 

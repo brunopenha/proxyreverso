@@ -6,15 +6,15 @@ import java.util.List;
 /**
  * @author hpark
  */
-public class Authentication {
+public class Autenticacao {
 
     private List<AuthRequest> authRequestList;
 
-    public Authentication() {
+    public Autenticacao() {
         authRequestList = new ArrayList<AuthRequest>();
     }
 
-    public Authentication(List<AuthRequest> authRequestList) {
+    public Autenticacao(List<AuthRequest> authRequestList) {
         this.authRequestList = authRequestList;
     }
 

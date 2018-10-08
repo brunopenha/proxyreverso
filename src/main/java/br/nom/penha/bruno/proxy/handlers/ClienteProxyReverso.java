@@ -6,22 +6,23 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashMap;
 
+import org.vertx.java.core.Handler;
+import org.vertx.java.core.Vertx;
+import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.http.HttpClient;
+import org.vertx.java.core.http.HttpClientRequest;
+import org.vertx.java.core.http.HttpClientResponse;
+import org.vertx.java.core.http.HttpServerRequest;
+import org.vertx.java.core.logging.Logger;
+
 import br.nom.penha.bruno.proxy.reverso.comum.TrataProxyReverso;
 import br.nom.penha.bruno.proxy.reverso.configuracao.AjustaRegra;
 import br.nom.penha.bruno.proxy.reverso.configuracao.ConfiguracaoProxyReverso;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.logging.Logger;
 
-public class ReverseProxyClient {
+public class ClienteProxyReverso {
 
 
-	ReverseProxyClient() {
+	ClienteProxyReverso() {
 	}
 
 	public void doProxy(final Vertx vertx, final HttpServerRequest req, final String messageBody, final ConfiguracaoProxyReverso config, final Logger log) {
@@ -42,8 +43,8 @@ public class ReverseProxyClient {
 		localAssets.put("/css/bootstrap.min.css", "text/css");
 		for (String assetPath : localAssets.keySet()) {
 			if (reqURI.getPath().equals(assetPath)) {
-				String path = ReverseProxyVerticle.getWebRoot() + assetPath;
-				Buffer b = vertx.fileSystem().readFileBlocking(path);
+				String path = ProxyReversoVerticle.getInicioWeb() + assetPath;
+				Buffer b = vertx.fileSystem().readFileSync(path);
 				String contentType = localAssets.get(assetPath);
 				TrataProxyReverso.send200OKResponse(log, req, b, contentType);
 				return;
@@ -87,20 +88,20 @@ public class ReverseProxyClient {
 		final HttpClient client = vertx.createHttpClient();
 
 		log.debug("Setting host --> " + targetURL.getHost());
-//		client.setHost(targetURL.getHost());
+		client.setHost(targetURL.getHost());
 
 		log.debug("Setting port --> " + targetURL.getPort());
-//		client.setPort(targetURL.getPort());
+		client.setPort(targetURL.getPort());
 
 		// TODO need to be tested
 		if (r.getProtocolo().equalsIgnoreCase("https")) {
 			log.debug("Creating HTTPS client");
-//			client.setSSL(true);
-			/*client.setTrustStorePath(TrataProxyReverso.estahNuloOuVazioAposUmTrim(r.getCaminhoDoTrustStore()) ? ReverseProxyVerticle.getResourceRoot()
+			client.setSSL(true);
+			client.setTrustStorePath(TrataProxyReverso.estahNuloOuVazioAposUmTrim(r.getCaminhoDoTrustStore()) ? ProxyReversoVerticle.getInicioRecursos()
 					+ config.ssl.caminhoDoTrustStore : r.getCaminhoDoTrustStore());
 			client.setTrustStorePassword(TrataProxyReverso.estahNuloOuVazioAposUmTrim(r.getSenhaDoTrustStore())
 					? config.ssl.senhaDoTrustStore
-					: r.getSenhaDoTrustStore());*/
+					: r.getSenhaDoTrustStore());
 		}
 
 		final HttpClientRequest cReq = client.request(req.method(), targetURL.getPath().toString(), new Handler<HttpClientResponse>() {

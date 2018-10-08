@@ -2,16 +2,18 @@ package br.nom.penha.bruno.proxy.cachearquivos;
 
 import java.util.Set;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Vertx;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import org.vertx.java.core.AsyncResult;
+import org.vertx.java.core.AsyncResultHandler;
+import org.vertx.java.core.Handler;
+import org.vertx.java.core.Vertx;
+import org.vertx.java.core.eventbus.EventBus;
+import org.vertx.java.core.logging.Logger;
+import org.vertx.java.core.logging.impl.LoggerFactory;
+import org.vertx.java.platform.Verticle;
 
 /**
  */
-public class CacheArquivoVerticle extends AbstractVerticle {
+public class CacheArquivoVerticle extends Verticle {
 
 	/**
 	 * Log
@@ -26,45 +28,42 @@ public class CacheArquivoVerticle extends AbstractVerticle {
 
 	private static final int TEMPO_ATUALIZACAO_EM_MILISSEGUNDO = 30 * 1000; 
 
-	public void atualizacaoAgendamento(final CacheArquivoImpl cache, final long refreshIntervalMillis) {
+	public void atualizacaoAgendamento(final CacheArquivoImpl cache, final long intervaloAtualizacaoEmMilisegundos) {
 
 		log.debug("Iniciando atualização do cache...");
-
-		cache.updateCache(new AsyncResult<Set<FileCacheEntry>>() {
-			
-
+		
+		cache.updateCache(new AsyncResultHandler<Set<ArquivosCacheInseridos>>() {
 			@Override
-			public Set<FileCacheEntry> result() {
-				return this.result();
-			}
+			public void handle(AsyncResult<Set<ArquivosCacheInseridos>> evento) {
 
-			@Override
-			public Throwable cause() {
-				return this.cause();
-			}
+				for (ArquivosCacheInseridos arquivo : evento.result()) {
+					vertx.eventBus().publish(arquivo.getCanalNotificacoesEventosNoBarramento(), true);
+				}
 
-			@Override
-			public boolean succeeded() {
-				return this.succeeded();
-			}
+				log.debug("Agendando a proxima atualização em " + TEMPO_ATUALIZACAO_EM_MILISSEGUNDO + " milisegundos");
 
-			@Override
-			public boolean failed() {
-				return this.failed();
+				vertx.setTimer(intervaloAtualizacaoEmMilisegundos, new Handler<Long>() {
+					@Override
+					public void handle(Long event) {
+						atualizacaoAgendamento(cache, intervaloAtualizacaoEmMilisegundos);
+					}
+				});
 			}
 		});
+
+		
 	}
 
 	public void start() {
 
 		final EventBus bus = vertx.eventBus();
 
-		final CacheArquivoImpl FILE_CACHE = getInstanciaCacheArquivo(this.getVertx());
+		final CacheArquivoImpl CACHE_ARQUIVO = getInstanciaCacheArquivo(this.getVertx());
 
 		log.debug("Registrando um ouvinte no barramento de enventos no canal [" + CANAL_CACHE_ARQUIVO + "] para lidar com a requisição.");
-		bus.consumer(CANAL_CACHE_ARQUIVO, new TrataRequisicaoColocarArquivoEmCache(FILE_CACHE));
+		bus.registerHandler(CANAL_CACHE_ARQUIVO, new TrataRequisicaoColocarArquivoEmCache(CACHE_ARQUIVO));
 
-		atualizacaoAgendamento(FILE_CACHE, TEMPO_ATUALIZACAO_EM_MILISSEGUNDO);
+		atualizacaoAgendamento(CACHE_ARQUIVO, TEMPO_ATUALIZACAO_EM_MILISSEGUNDO);
 
 	}
 

@@ -9,11 +9,28 @@
 	<description>Projeto usado para realizar proxy reverso para as requisições feitas na Internet.</description>
 
 	<dependencies>
-		<dependency>
+		<!-- <dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-core</artifactId>
 			<version>3.5.3</version>
+		</dependency> -->
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-core</artifactId>
+			<version>2.1M5</version>
 		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-platform</artifactId>
+			<version>2.1M5</version>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-hazelcast</artifactId>
+			<version>2.1M5</version>
+		</dependency>
+		
+		
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
